@@ -1,0 +1,1046 @@
+<script>
+//NEW VARIABLES
+var ExpensesFrontEnd;
+var ViewsId = {
+  'ExpensesView': 'App',
+  'MonthsView': 'AccountsTotal',
+  'ModalView' : 'modal1',
+  'ModalFields':"FormFields",
+  "ModalButtons":"FormButtons",
+};
+
+function* ColorTable(index) {
+  let ColorList =     [
+    'LightSeaGreen',
+    'Salmon',
+    'DeepPink',
+    'MediumVioletRed',
+    'LawnGreen',
+    'RebeccaPurple',
+    'Crimson',
+    'Gray',
+    'Blue',
+    'MediumVioletRed',
+    'SpringGreen',
+    'Orange',
+    'Purple',
+    'Red',
+    'DeepSkyBlue',
+    'Yellow',
+    'Magenta',
+    'DarkSlateBlue',
+    'Lime',
+    'MediumAquamarine',
+    'Chocolate'
+  ];
+
+  if(index > ColorList.length - 1){
+    index = 0;
+  }
+
+  while (true) {
+    yield ColorList[index];
+    index=(index == ColorList.length - 1)?0:index+1;
+  }
+}
+
+
+
+//NEW CLASSES
+
+function DateExpense(DateIn) {
+  let InitialDate = (typeof DateIn === 'number') ? DateIn.toString() : DateIn;
+
+  let dateRegexps = [
+    /^(?<year>[0-9]{4})(\/|-)(?<month>[0-9]{2})(\/|-)(?<day>[0-9]{1,2})$/g,
+    /^(?<day>[0-9]{1,2})(\/|-)(?<month>[0-9]{1,2})(\/|-)(?<year>[0-9]{4})$/g,
+    /^(?<year>[0-9]{4})(?<month>[0-9]{2})(?<day>[0-9]{2})$/g,
+  ];
+
+  let Groups = null;
+
+  for(let Regex of dateRegexps) {
+    let Result = Regex.exec(DateIn);
+    if(Result) {
+      Groups = Result.groups;
+      break;
+    }
+  }
+
+  if(Groups) {
+    this.year = parseInt(Groups.year,10);
+    this.month = parseInt(Groups.month,10);
+    this.day = parseInt(Groups.day,10);
+  } else {
+    let Today = new Date();
+    this.year = Today.getFullYear();
+    this.month = Today.getMonth()+1;
+    this.day = Today.getDate();
+  }
+
+  this.GetFormat = function () {
+    return `${this.day}/${this.month}/${this.year}`;
+  }
+  this.GetFormatLetter = function () {
+    let Months = [
+      "Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"
+    ];
+    return `${this.day}/${Months[this.month-1]}/${this.year}`;
+  }
+  this.GetRaw = function () {
+    return this.year*10000+this.month*100+this.day;
+  }
+  this.IsThisMonth = function (CheckMonth) {
+    if(CheckMonth == null || CheckMonth.month == null || CheckMonth.year == null){
+      return false;
+    }
+    return (this.month == CheckMonth.month && this.year == CheckMonth.year);
+  }
+  this.GetLetterMonth = function() {
+    let Months = [
+      "Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
+    ];
+    return Months[this.month-1];
+  }
+  this.GoFutureMonth = function(Months){
+    this.year += (Months/12).toFixed();
+    this.month += Months%12;
+  }
+  this.GoPastMonth = function(Months){
+    this.year -= (Months/12).toFixed();
+    this.month -= Months%12;
+  }
+}
+
+
+function AllDataFrontEnd(ServerInfo) {
+  var keys = Object.keys(ServerInfo);
+  keys.forEach((key)=>{
+    this[key] = ServerInfo[key];
+  });
+  
+  this.Expenses.map(function(Expense){
+    Expense.fecha = new DateExpense(Expense.fecha);
+    return Expense;
+  });
+
+  this.getDataMonth = function(Date) {
+    let Response = {};
+    Response.Cuentas = this.Cuentas.map(function(Cuenta){
+      let Total = {};
+      Total['cuenta'] = Cuenta[0];
+      Total['limite'] = Cuenta[1];
+      Total['mes'] = 0;
+      return Total;
+    });
+    Response.totalMes = 0;
+    Response.Expenses = this.Expenses.filter(function(Expense){
+      if(Expense.fecha.IsThisMonth(Date)) {
+        Response.Cuentas.forEach(function(Cuenta){
+          if(Expense.cuenta == Cuenta.cuenta) {
+            Cuenta.mes+=Expense.monto;
+            if(Expense.cuenta != "Ingreso"){
+              Response.totalMes+= Expense.monto;              
+            }        
+          }
+        }); 
+        return true;
+      }
+
+      return false;
+    });
+
+    return Response;
+  }
+
+  this.getExpenseById = function(Id){
+    let InputId = (typeof Id === 'number') ? Id.toString(): Id;
+
+    let CurrentExpense = this.Expenses.filter((Expense) => {
+      return (InputId == Expense.id);
+    });
+
+    if(CurrentExpense.length > 0){
+      return CurrentExpense[0];
+    } else {
+      return null;
+    }
+  }
+
+  this.getLastDate = function() {
+    return this.Expenses[this.Expenses.length-1].fecha;
+  }
+}
+
+//VALIDATION
+
+function ValidationData(){
+    const ErrorMessages = {
+      InputCuenta:"Error en cuenta seleccionada",
+      InputFecha:"Error en fecha introducida",
+      InputDescription:"Error en descripción",
+      InputMonto:"Error en monto introducido"
+    };
+
+    var FieldsToValidate = document.querySelectorAll('input, select');
+    var ResultValidation = true;
+
+    Array.from(FieldsToValidate).forEach(function(element){
+      if(element.checkValidity() == false) {
+        M.toast({html: ErrorMessages[element.id]});            
+      }
+      ResultValidation &= element.checkValidity();
+    });
+
+    return ResultValidation;
+  }
+
+
+//NEW FRONT END FUNCTIONS
+
+  function AddLoadingView(ApplyInId){
+    const ClassesCircle = [
+      "circle-clipper left",
+      "gap-patch",
+      "circle-clipper right"
+    ];
+    var elementWaiting = document.getElementById(ApplyInId);
+    elementWaiting.innerHTML = "";
+    
+    var DivRow = document.createElement("div");
+    DivRow.setAttribute("class","row loading-info");
+    var DivCol = document.createElement("div");
+    DivCol.setAttribute("class","col s1 offset-s4 valign-wrapper");
+    DivRow.appendChild(DivCol);
+
+    var DivLoader1 = document.createElement("div");
+    DivLoader1.setAttribute("class","preloader-wrapper big active");
+    var DivLoader2 = document.createElement('div');
+    DivLoader2.setAttribute("class","spinner-layer spinner-blue-only");
+    
+    DivLoader1.appendChild(DivLoader2);
+    DivRow.appendChild(DivLoader1);
+    elementWaiting.appendChild(DivRow);
+
+    ClassesCircle.forEach(function(Class){
+      var Circle = document.createElement('div');
+      Circle.setAttribute("class","circle");
+      var DivCircle = document.createElement("div");
+      DivCircle.setAttribute("class",Class);
+      DivCircle.appendChild(Circle);
+      DivLoader2.appendChild(DivCircle); 
+    });
+  }
+
+  function CreateFormForExpenseInModal_FrontEnd(Ids, ExpensesData, FormInfo){
+
+    document.getElementById(Ids.ModalView).style.maxHeight = "100%";
+
+    var FormContent = document.getElementById(Ids.ModalFields);
+    FormContent.innerHTML = "";
+    //Title
+    var TitleElement = document.createElement("h4");
+    TitleElement.textContent = (FormInfo.Action == "add")?"Agregar":"Editar";
+    TitleElement.setAttribute("class","center-align");
+
+    //Cuentas
+    var InputCuenta = document.createElement("select");
+    InputCuenta.setAttribute("id","InputCuenta");
+    InputCuenta.setAttribute("required","");
+
+   if(FormInfo.Action == "add") {
+      var option = document.createElement("option");
+      option.textContent = "Selecciona cuenta";
+      option.setAttribute("value","");
+      option.setAttribute("disabled","");
+      option.setAttribute("selected","");
+      InputCuenta.appendChild(option);
+    } 
+
+    ExpensesData.Cuentas.forEach(function(r, index){
+        var option = document.createElement("option");
+        option.textContent = r[0];
+        option.setAttribute("value",r[0]);
+        InputCuenta.appendChild(option);
+      }
+    );
+
+    var LabelCuenta = document.createElement("label");
+    LabelCuenta.setAttribute("for","InputCuenta");
+    LabelCuenta.textContent = "Cuenta";
+
+    var DivCuenta = document.createElement("div");
+    DivCuenta.setAttribute("class","input-field row");
+    DivCuenta.appendChild(InputCuenta);
+    DivCuenta.appendChild(LabelCuenta);
+
+    //Fecha
+    var InputFecha = document.createElement("input");
+    InputFecha.setAttribute("id","InputFecha");
+    InputFecha.setAttribute("type","text");
+    InputFecha.setAttribute("required","");
+    InputFecha.setAttribute("class","datepicker");
+
+    var LabelFecha = document.createElement("label");
+    LabelFecha.setAttribute("for","InputFecha");
+    LabelFecha.textContent = "Fecha";
+    if(FormInfo.Action == "edit") {
+      LabelFecha.classList.add("active");
+    }
+
+    var DivFecha = document.createElement("div");
+    DivFecha.setAttribute("class","input-field row");
+    DivFecha.appendChild(InputFecha);
+    DivFecha.appendChild(LabelFecha);
+
+    //Description
+    var InputDescription = document.createElement("input");
+    InputDescription.setAttribute("id","InputDescription");
+    InputDescription.setAttribute("type","text");
+    InputDescription.setAttribute("required","");
+
+    var LabelDescription = document.createElement("label");
+    LabelDescription.setAttribute("for","InputDescription");
+    LabelDescription.textContent = "Descripción";
+    if(FormInfo.Action == "edit") {
+      LabelDescription.classList.add("active");
+    }
+
+    var DivDescription = document.createElement("div");
+    DivDescription.setAttribute("class","input-field row");
+    DivDescription.appendChild(InputDescription);
+    DivDescription.appendChild(LabelDescription);
+
+    //Monto
+    var InputMonto = document.createElement("input");
+    InputMonto.setAttribute("id","InputMonto");
+    InputMonto.setAttribute("type","number");
+    InputMonto.setAttribute("min","0");
+    InputMonto.setAttribute("step","0.01");
+    InputMonto.setAttribute("required","");
+    InputMonto.setAttribute("pattern","^\d+((\.|,)\d+)?$");
+
+    var LabelMonto = document.createElement("label");
+    LabelMonto.setAttribute("for","InputMonto");
+    LabelMonto.textContent = "Monto";
+    if(FormInfo.Action == "edit") {
+      LabelMonto.classList.add("active");
+    }
+
+    var DivMonto = document.createElement("div");
+    DivMonto.setAttribute("class","input-field row");
+    DivMonto.appendChild(InputMonto);
+    DivMonto.appendChild(LabelMonto);
+
+    //Agrega elementos
+    FormContent.appendChild(TitleElement);
+    FormContent.appendChild(DivCuenta);
+    FormContent.appendChild(DivFecha);
+    FormContent.appendChild(DivDescription);
+    FormContent.appendChild(DivMonto);
+
+    //Agrega valores por defecto
+    if(FormInfo.Action == "edit") {
+      let CurrentExpense = ExpensesData.getExpenseById(FormInfo.id);
+
+      InputCuenta.value = CurrentExpense.cuenta;
+      InputMonto.value = Math.abs(CurrentExpense.monto);
+      InputDescription.value = CurrentExpense.descripcion.toString();
+      InputFecha.value = CurrentExpense.fecha.GetFormatLetter();
+    }
+
+    //Botones
+    var FormButton = document.getElementById(Ids.ModalButtons);
+    FormButton.innerHTML = "";
+
+    if(FormInfo.Action == "add") {
+      var ButtonAdd = document.createElement('a');
+      ButtonAdd.setAttribute('class','modal-close waves-effect waves-green btn-flat');
+      ButtonAdd.textContent = "Agregar";
+
+      ButtonAdd.addEventListener('click',function(){
+
+          if(ValidationData()) {
+            AddLoadingView(ViewsId.ExpensesView);
+            M.toast({html: "Operación exitosa"});
+
+            google.script.run.withSuccessHandler(function(ServerResponse){
+              ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
+              AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
+            }).ExecuteServerFunctions({
+              funcs:[
+                {func:'addExpense',args:{
+                  Cuenta:InputCuenta.value,
+                  Monto:InputMonto.value,
+                  Description:InputDescription.value,
+                  Fecha:InputFecha.value
+                }},
+                {func: 'getAllData'},
+              ]
+            });
+          }
+      });
+
+      FormButton.appendChild(ButtonAdd);
+    } else {
+      var ButtonDelete = document.createElement('a');
+      ButtonDelete.setAttribute('class','modal-close waves-effect waves-red btn-flat');
+      ButtonDelete.textContent = "Eliminar";
+
+      ButtonDelete.addEventListener('click',function(){
+        AddLoadingView(ViewsId.ExpensesView);
+
+        M.toast({html: "Operación exitosa"});
+
+        google.script.run.withSuccessHandler(function(ServerResponse){
+          ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
+          AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);   
+        }).ExecuteServerFunctions({
+          funcs:[
+            {func:'editExpenseById',args:{
+              id:FormInfo.id,
+              action:'delete'
+            }},
+            {func: 'getAllData'}
+          ]
+        });
+      });
+
+      FormButton.appendChild(ButtonDelete);
+
+      var ButtonEdit = document.createElement('a');
+      ButtonEdit.setAttribute('class','modal-close waves-effect waves-green btn-flat');
+      ButtonEdit.textContent = "Editar";
+
+      ButtonEdit.addEventListener('click',function(){
+        AddLoadingView(ViewsId.ExpensesView);
+        M.toast({html: "Operación exitosa"});
+
+        google.script.run.withSuccessHandler(function(ServerResponse){
+          ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
+          AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);       
+        }).ExecuteServerFunctions({
+          funcs:[
+            {func:'editExpenseById',args:{
+              Cuenta:InputCuenta.value,
+              Monto:InputMonto.value,
+              Description:InputDescription.value,
+              Fecha:InputFecha.value,
+              id:FormInfo.id,
+              action:'edit'
+            }},
+            {func:'getAllData'}
+          ]
+        });
+      });      
+
+      FormButton.appendChild(ButtonEdit);
+    }
+
+    //Inicializa JS
+    var SelectCuentaElem = document.getElementById("InputCuenta");
+    var SelectInstace = M.FormSelect.init(SelectCuentaElem);
+
+    var DateElemet = document.getElementById('InputFecha');
+    var DateInstace = M.Datepicker.init(DateElemet, {
+            format: 'd/mmm/yyyy',
+            firstDay:1,
+            showDaysInNextAndPreviousMonths: true,
+            container: 'body',
+            i18n: {
+              months : [
+                "Enero",
+                "Febrero",
+                "Marzo",
+                "Abril",
+                "Mayo",
+                "Junio",
+                "Julio",
+                "Agosto",
+                "Septiembre",
+                "Octubre",
+                "Noviembre",
+                "Diciembre"
+              ],
+              monthsShort: [
+                "Ene",
+                "Feb",
+                "Mar",
+                "Abr",
+                "May",
+                "Jun",
+                "Jul",
+                "Ago",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dic"
+              ],
+              weekdaysShort:[
+                "Dom",
+                "Lun",
+                "Mar",
+                "Mie",
+                "Jue",
+                "Vie",
+                "Sab"
+              ],
+              weekdaysAbbrev:[
+                "D",
+                "L",
+                "M",
+                "X",
+                "J",
+                "V",
+                "S"
+              ]
+            }
+          });
+
+  };
+
+
+
+
+function AddExpenseFrontEnd(Ids,ExpensesData){
+      var MainElement = document.getElementById(Ids.ExpensesView);
+      MainElement.innerHTML = "";
+
+      ExpensesData.Expenses.forEach(function(Expense){
+        /* Agrega cuenta */
+        var ElemCuenta = document.createElement("span");
+        ElemCuenta.setAttribute("class", "flow-text");
+        ElemCuenta.textContent = Expense.cuenta;
+
+        var divElementLeft = document.createElement("div");
+        divElementLeft.setAttribute("class", "col s8");
+        divElementLeft.appendChild(ElemCuenta);
+
+
+        /* Agrega fecha */
+        var ElemFecha = document.createElement("span");
+        ElemFecha.setAttribute("class", "flow-text");
+        ElemFecha.textContent = Expense.fecha.GetFormatLetter();
+
+        var divElementRight = document.createElement("div");
+        divElementRight.setAttribute("class", "col s4 right-align");
+        divElementRight.appendChild(ElemFecha);
+
+        /* Conjunta cuenta y fecha */
+        var DivRow1 = document.createElement("div");
+        DivRow1.setAttribute("class", "row");
+        DivRow1.appendChild(divElementLeft);
+        DivRow1.appendChild(divElementRight);
+
+        /* Agrega descripción */
+        var ElemDescripcion = document.createElement("span");
+        ElemDescripcion.setAttribute("class", "card-title flow-text");
+        ElemDescripcion.textContent = Expense.descripcion;
+
+        divElementLeft = document.createElement("div");
+        divElementLeft.setAttribute("class", "col s8");
+        divElementLeft.appendChild(ElemDescripcion);
+
+        // Agrega monto
+        var ElemMonto = document.createElement("span");
+        ElemMonto.setAttribute("class", "card-title flow-text");
+        ElemMonto.textContent = Math.abs(Expense.monto);
+
+        divElementRight = document.createElement("div");
+        divElementRight.setAttribute("class", "col s4 right-align");
+        divElementRight.appendChild(ElemMonto);
+
+        /* Conjunta cuenta y fecha */
+        var DivRow2 = document.createElement("div");
+        DivRow2.setAttribute("class", "row");
+        DivRow2.appendChild(divElementLeft);
+        DivRow2.appendChild(divElementRight);
+
+        // Agrega Elementos principales
+
+        var CardContent = document.createElement("div");
+        CardContent.setAttribute("class","card-content black-text");
+        CardContent.appendChild(DivRow1);
+        CardContent.appendChild(DivRow2);
+
+        var cardElement = document.createElement("div");
+        cardElement.classList.add("card");
+        cardElement.classList.add("modal-trigger");
+        cardElement.classList.add("lighten-4");
+        cardElement.classList.add("ExpenseLog");
+        cardElement.setAttribute("href","#modal1");
+        cardElement.setAttribute("id",Expense.id);
+        cardElement.classList.add((Expense.cuenta=="Ingreso")?"green":"red");
+        cardElement.appendChild(CardContent);
+
+        cardElement.addEventListener('click',function(){
+          CreateFormForExpenseInModal_FrontEnd(ViewsId,ExpensesFrontEnd,{'Action':'edit','id':this.id});
+        });
+
+        MainElement.appendChild(cardElement);
+      });
+
+    }
+
+
+
+function AddTotalsFrontEnd(Ids,ExpensesData) {
+
+      var elemSideBar = document.getElementById(Ids.MonthsView);
+      elemSideBar.innerHTML = "";
+
+      //BALANCE DE TOTALES
+      var liElement = document.createElement("li");
+
+      //Titulo
+      var TilteElement = document.createElement("a");
+      TilteElement.textContent = "Balance General";
+      TilteElement.setAttribute('class',"subheader");
+      liElement.appendChild(TilteElement);
+
+      //Total en cuenta
+      var aElement = document.createElement("a");
+      var InfoElement = document.createElement("h5");
+      InfoElement.setAttribute("id","Total");
+      if(ExpensesData.Total >= 0) {
+        InfoElement.classList.add("light-green-text");
+        InfoElement.classList.add("text-accent-4");
+      } else {
+        InfoElement.classList.add("red-text");
+        InfoElement.classList.add("text-accent-4");
+      }
+      InfoElement.textContent = "Total " + ExpensesData.Total.toFixed(2).toString();
+      aElement.appendChild(InfoElement);
+
+      liElement.appendChild(aElement);
+      elemSideBar.appendChild(liElement);
+
+      //BALANCE DEL MES
+      var CurrentDate = new DateExpense();
+      var MonthInfo = ExpensesData.getDataMonth(CurrentDate);
+
+      var liElement = document.createElement("li");
+      var divElement = document.createElement("div");
+      divElement.setAttribute('class',"divider");
+      liElement.appendChild(divElement);
+      elemSideBar.appendChild(liElement);
+
+      var liElement = document.createElement("li");
+      var aElement = document.createElement("a");
+      aElement.textContent = "Balance del Mes";
+      aElement.setAttribute('class',"subheader");
+      liElement.appendChild(aElement);
+      elemSideBar.appendChild(liElement);
+
+      //Total gastos del mes
+
+      var aElement = document.createElement("a");
+      var InfoElement = document.createElement("h6");
+      InfoElement.setAttribute("id","TotalGastos");
+      InfoElement.textContent = "Gastos " + Math.abs(MonthInfo.totalMes).toFixed(2).toString();
+      aElement.appendChild(InfoElement);
+
+      liElement.appendChild(aElement);
+      elemSideBar.appendChild(liElement);
+
+      //Total ingresos del mes
+
+      var aElement = document.createElement("a");
+      var InfoElement = document.createElement("h6");
+      InfoElement.setAttribute("id","TotalGastos");
+      InfoElement.textContent = "Ingresos " + Math.abs(MonthInfo.Cuentas[0]['mes']).toFixed(2).toString();
+      aElement.appendChild(InfoElement);
+
+      liElement.appendChild(aElement);
+      elemSideBar.appendChild(liElement);
+
+      //GASTOS POR CATEGORIAS
+
+      var liElement = document.createElement("li");
+      var divElement = document.createElement("div");
+      divElement.setAttribute('class',"divider");
+      liElement.appendChild(divElement);
+      elemSideBar.appendChild(liElement);
+
+      var liElement = document.createElement("li");
+      var aElement = document.createElement("a");
+      aElement.textContent = "Categorias";
+      aElement.setAttribute('class',"subheader");
+      liElement.appendChild(aElement);
+      elemSideBar.appendChild(liElement);
+
+      MonthInfo.Cuentas.forEach(function(Cuenta){
+          if(Cuenta.cuenta != "Ingreso") {
+            var liElement = document.createElement("li");
+            var aElement = document.createElement("a");
+
+            aElement.classList.add("modal-trigger");
+            aElement.setAttribute("href","#modal1");
+            aElement.addEventListener('click',function(){
+                CreateFormForAccoutInModal(ViewsId,ExpensesFrontEnd,this.childNodes[0].id);
+            });
+
+            var InfoElement = document.createElement("p");
+            InfoElement.setAttribute("id",Cuenta.cuenta);
+            InfoElement.textContent = Cuenta.cuenta + " " + Math.abs(Cuenta.mes).toFixed(2).toString() + " "+ ((Cuenta.limite > 0) ? "("+ Math.abs((Cuenta.mes*100)/Cuenta.limite).toFixed(0).toString()+"%)":"");
+            
+            if((Math.abs(Cuenta.mes) > Cuenta.limite) && (Cuenta.limite > 0)) {
+              InfoElement.classList.add("red-text");
+              InfoElement.classList.add("text-accent-4");              
+            } else {
+              InfoElement.classList.add("light-green-text");
+              InfoElement.classList.add("text-accent-4");
+            }
+
+            aElement.appendChild(InfoElement);
+            liElement.appendChild(aElement);
+            elemSideBar.appendChild(liElement); 
+          }         
+        })
+    }
+
+
+
+
+
+function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
+
+  var CurrentDate = new DateExpense();
+  var MonthInfo = ExpensesData.getDataMonth(CurrentDate);
+
+  var CurrentCuenta = MonthInfo.Cuentas.filter((CuentaElement)=>{
+    return (CuentaElement.cuenta == Cuenta)
+  })[0];
+
+    document.getElementById(Ids.ModalView).style.maxHeight = "35%";
+
+    var FormContent = document.getElementById(Ids.ModalFields);
+    FormContent.innerHTML = "";
+    //Title
+    var TitleElement = document.createElement("h4");
+    TitleElement.textContent = Cuenta;
+    TitleElement.setAttribute("class","center-align");
+
+    //Monto
+    var InputMonto = document.createElement("input");
+    InputMonto.setAttribute("id","InputMonto");
+    InputMonto.setAttribute("type","number");
+    InputMonto.setAttribute("min","0");
+    InputMonto.setAttribute("step","0.01");
+    InputMonto.setAttribute("required","");
+    InputMonto.setAttribute("pattern","^\d+((\.|,)\d+)?$");
+    InputMonto.value = Math.abs(CurrentCuenta.limite);
+
+    var LabelMonto = document.createElement("label");
+    LabelMonto.setAttribute("for","InputMonto");
+    LabelMonto.textContent = "Monto";
+    LabelMonto.classList.add("active");
+
+    var DivMonto = document.createElement("div");
+    DivMonto.setAttribute("class","input-field row");
+    DivMonto.appendChild(InputMonto);
+    DivMonto.appendChild(LabelMonto);
+
+    //Agrega elementos
+    FormContent.appendChild(TitleElement);
+    FormContent.appendChild(DivMonto);
+
+    var FormButton = document.getElementById(Ids.ModalButtons);
+    FormButton.innerHTML = "";
+
+    var ButtonEdit = document.createElement('a');
+    ButtonEdit.setAttribute('class','modal-close waves-effect waves-green btn-flat');
+    ButtonEdit.textContent = "Editar";
+
+    ButtonEdit.addEventListener('click',function(){
+  
+        if(document.getElementById('InputMonto').checkValidity()) {
+          M.toast({html: "Se editó el total de la cuenta"});
+
+          google.script.run.withSuccessHandler(function(ServerResponse){
+                //Totales por cuenta
+                ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
+                AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);       
+              }).ExecuteServerFunctions({
+                funcs:[
+                  {func:'EditLimitByAccount',args:{
+                    Cuenta:Cuenta,
+                    Monto:InputMonto.value
+                  }},
+                  {func:'getAllData'}
+                ]
+              });
+          } else {
+            M.toast({html: "El monto introducido es incorrecto"});
+          }
+    });
+  
+
+  FormButton.appendChild(ButtonEdit);
+}
+
+  
+
+    //Initialization
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      AddLoadingView(ViewsId.ExpensesView);
+
+      google.script.run.withSuccessHandler(function(ServerResponse){
+
+        if('Test' == ServerResponse.GetDeployType) {
+          var ButtonContainer = document.getElementById('ActionButtons');
+
+          //Agrega boton de test
+          var TestButton = document.createElement('li');
+          var LinkButton = document.createElement('a');
+          LinkButton.setAttribute('class',"btn-floating cyan darken-4");
+          LinkButton.setAttribute("id","TestButton");
+          var TestIcon = document.createElement('i');
+          TestIcon.setAttribute("class","large material-icons");
+          TestIcon.textContent = "developer_mode";
+
+          LinkButton.addEventListener("click",function(){
+            console.log("Presiono el boton de prueba");      
+          });
+
+          LinkButton.appendChild(TestIcon);
+          TestButton.appendChild(LinkButton);
+          ButtonContainer.appendChild(TestButton);
+        }
+
+        var elemBotton = document.querySelectorAll('.fixed-action-btn');
+        var instanceBottom = M.FloatingActionButton.init(elemBotton,{
+          direction:'top',
+          hoverEnabled:false,
+          toolbarEnabled:false
+        });
+        
+        ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
+        AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
+      }).ExecuteServerFunctions({
+        funcs:[
+        {func:'GetDeployType'},
+        {func: 'getAllData'}
+        ]
+      });
+
+      var elemSideBar = document.getElementById(ViewsId.MonthsView);
+      var instanceSideBar = M.Sidenav.init(elemSideBar,{
+        edge:"left"
+      });
+
+      var elemModal = document.querySelectorAll('.modal');
+      var instanceModal = M.Modal.init(elemModal);
+
+      //GESTION BOTONES
+
+      var ButtonTotals = document.getElementById('TotalsButton');
+      ButtonTotals.addEventListener("click",function(){
+        AddTotalsFrontEnd(ViewsId,ExpensesFrontEnd);     
+      });
+
+      var ButtonAdd = document.getElementById('AddButton');
+      ButtonAdd.addEventListener('click',function(){
+
+        CreateFormForExpenseInModal_FrontEnd(ViewsId,ExpensesFrontEnd,{'Action':'add'});
+
+      });
+
+      var ButtonHome = document.getElementById('HomeButton');
+      ButtonHome.addEventListener("click",function(){
+          AddLoadingView(ViewsId.ExpensesView);
+          AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
+
+      });
+
+
+      //Gráficos
+
+      function GraficoResumen(){
+        //BALANCE DEL MES
+        let CurrentDate = new DateExpense();
+        let MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
+
+        let CuentasMonth = [["Cuenta","Monto",{ role: 'style' }]];
+
+        const colorIndex = ColorTable(0);
+
+        MonthInfo.Cuentas.forEach(function(cuenta){
+          if(cuenta.cuenta != "Ingreso") {
+            CuentasMonth.push([cuenta.cuenta, Math.abs(cuenta.mes),colorIndex.next().value]);
+          }
+        });
+
+        // Define the chart to be drawn.
+        var data = google.visualization.arrayToDataTable(CuentasMonth);
+
+        var view = new google.visualization.DataView(data);
+        view.setColumns([0, 1,
+                        { calc: "stringify",
+                          sourceColumn: 1,
+                          type: "string",
+                          role: "annotation"
+                        },
+                        2]);
+
+        // Instantiate and draw the chart.
+        var chart = new google.visualization.BarChart(document.getElementById('ChartApp'));
+        chart.draw(view,{
+          bar: {groupWidth: "98%"},
+          legend: { position: "none" },
+          title: CurrentDate.GetLetterMonth() + " " + CurrentDate.year.toString(),
+          titleTextStyle: {
+                            fontSize: 15,
+                            bold: true
+                          },
+          height: 430,
+          annotations: {
+            textStyle: {
+              fontSize: 11,
+              opacity: 0.7
+            }
+          },
+          chartArea:{
+            top:30,
+            left:50,
+            width:'75%',
+            height:'75%'
+          },
+          vAxis:{
+            textStyle: {
+              fontSize: 9
+            }
+          }
+        });
+      }
+
+      function GraficoCuentas(){
+        // Define the chart to be drawn.
+        var data = new google.visualization.DataTable();
+          data.addColumn('string', 'Element');
+          data.addColumn('number', 'Percentage');
+          data.addRows([
+            ['Nitrogen', 0.78],
+            ['Oxygen', 0.21],
+            ['Other', 0.01]
+          ]);
+
+          // Instantiate and draw the chart.
+          var chart = new google.visualization.ColumnChart(document.getElementById('ChartApp'));
+          chart.draw(data, null);
+      }      
+
+      var GraficosList = [
+        {
+          'name':'Resumen mes',
+          'function': GraficoResumen
+        },
+        {
+          'name':'Historial cuentas',
+          'function': GraficoCuentas
+        },
+      ];
+
+      var ButtonChart = document.getElementById('ChartButton');
+      ButtonChart.addEventListener('click',function(){        
+
+        AddLoadingView(ViewsId.ExpensesView);
+
+        let CurrentDate = new DateExpense();
+        let LastDate = ExpensesFrontEnd.getLastDate();
+        var Dates = [{...CurrentDate}];
+
+        do{
+          CurrentDate.GoPastMonth(1);
+          Dates.push({...CurrentDate});         
+        }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
+
+        console.log(Dates);
+
+        //Adding list to choose the kind of chart        
+        var FormContent = document.getElementById(ViewsId.ExpensesView);
+        FormContent.innerHTML = "";
+        //Title
+        var TitleElement = document.createElement("h4");
+        TitleElement.textContent = "Gráficos";
+        TitleElement.setAttribute("class","center-align");
+        //Graficos
+        var KindChart = document.createElement("select");
+        KindChart.setAttribute("id","KindChart");
+        KindChart.setAttribute("required","");
+
+        GraficosList.forEach(function(r, index){
+            var option = document.createElement("option");
+            option.textContent = r.name;
+            option.setAttribute("value",index);
+            KindChart.appendChild(option);
+          }
+        );
+
+        var LabelChart= document.createElement("label");
+        LabelChart.setAttribute("for","KindChart");
+        LabelChart.textContent = "Gráficos";
+        //Meses para seleccionar
+        var MonthSelected = document.createElement("select");
+        MonthSelected.setAttribute("id","MonthSelected");
+        MonthSelected.setAttribute("required","");
+
+        Dates.forEach(function(month,index){
+          var option = document.createElement("option");
+          option.textContent = month.GetLetterMonth()+"-"+month.year.toString();
+          option.setAttribute("value",month.GetRaw());
+          MonthSelected.appendChild(option);
+        });
+
+        var LabelMonth = document.createElement("label");
+        LabelMonth.setAttribute("for","MonthSelected");
+        LabelMonth.textContent = "Mes";
+
+        //Add elements to DOM
+        var DivInfo = document.createElement("div");
+        DivInfo.setAttribute("class","input-field row");
+        DivInfo.appendChild(KindChart);
+        DivInfo.appendChild(LabelChart);
+
+        var DivMonth = document.createElement("div");
+        DivMonth.setAttribute("class","input-field row");
+        DivMonth.appendChild(MonthSelected);
+        DivMonth.appendChild(LabelMonth);
+
+        FormContent.appendChild(TitleElement);
+        FormContent.appendChild(DivInfo);
+        FormContent.appendChild(DivMonth);
+        
+        var DivChart = document.createElement("div");
+        DivChart.setAttribute("class","row");
+        DivChart.setAttribute("id","ChartApp");
+        FormContent.appendChild(DivChart);
+
+        google.charts.load('current', {packages: ['corechart', 'bar']});
+        google.charts.setOnLoadCallback(GraficosList[0].function);
+
+
+        //Inicializa JS
+        var SelectChartElem = document.getElementById("KindChart");        
+        var SelectInstace = M.FormSelect.init(SelectChartElem);
+
+        var SelectMonthElem = document.getElementById("MonthSelected");        
+        var SelectMonthInstance = M.FormSelect.init(SelectMonthElem);
+        
+        
+        var SelectChartActive = document.querySelectorAll(".select-wrapper")[0];
+
+        SelectChartActive.addEventListener("change",function(){
+          AddLoadingView('ChartApp');
+          
+          //Adding list to choose the kind of chart        
+          var FormContent = document.getElementById('ChartApp');
+          FormContent.innerHTML = "";
+          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
+        });
+
+      });
+
+    });     
+  </script>

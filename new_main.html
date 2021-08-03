@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_self">
+      <meta name="viewport" content="width=device-width, inital-scaler=1.0"/>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+      <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+      <link rel="canonical" href="finanzasfamiliamarquez.netlify.app"/>
+      <!-- CSS Included -->
+      <?!= include("new_main-css"); ?>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <ul id="AccountsTotal" class="sidenav">      
+    </ul>
+
+    <div id="App" class="container">
+    </div>
+
+    <!--Boton Flotante-->
+    <div class="fixed-action-btn">
+      <a class="btn-floating btn-large red">
+        <i class="large material-icons">menu</i>
+      </a>
+      <ul id="ActionButtons">
+        <li><a id="AddButton" href="#modal1" class="btn-floating yellow darken-1 modal-trigger"><i class="large material-icons">add</i></a></li>
+        <li><a id="TotalsButton" class="btn-floating blue"><i data-target="AccountsTotal" class="sidenav-trigger large material-icons">euro_symbol</i></a></li>
+        <li><a id="ChartButton" class="btn-floating purple darken-4"><i class="large material-icons">insert_chart</i></a></li>
+        <li><a id="HomeButton" class="btn-floating green"><i class="large material-icons">home</i></a></li>
+      </ul>
+    </div>
+    
+    <!-- Modal -->
+
+    <div id="modal1" class="modal modal-fixed-footer">
+      <div class="modal-content" id="FormFields">
+      </div>
+      <div class="modal-footer" id="FormButtons">
+      </div>
+    </div>
+
+    <!-- JS included -->
+    <?!= include("new_main-js"); ?>
+    <!--Import jQuery before materialize.js-->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  </body>
+</html>
