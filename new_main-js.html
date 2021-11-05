@@ -118,9 +118,12 @@ function AllDataFrontEnd(ServerInfo) {
   keys.forEach((key)=>{
     this[key] = ServerInfo[key];
   });
+
+  this.Total = 0;
   
-  this.Expenses.map(function(Expense){
+  this.Expenses.map((Expense)=>{
     Expense.fecha = new DateExpense(Expense.fecha);
+    this.Total+=Expense.monto;
     return Expense;
   });
 
@@ -855,11 +858,12 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
       });
 
 
-      //Gráficos
+      //GRAFICOS
 
+      //callback functions
       function GraficoResumen(){
         //BALANCE DEL MES
-        let CurrentDate = new DateExpense();
+        let CurrentDate = new DateExpense(MonthSelected.value);
         let MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
 
         let CuentasMonth = [["Cuenta","Monto",{ role: 'style' }]];
@@ -942,21 +946,12 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         },
       ];
 
+
+      //Add Charts to DOM
       var ButtonChart = document.getElementById('ChartButton');
       ButtonChart.addEventListener('click',function(){        
 
         AddLoadingView(ViewsId.ExpensesView);
-
-        let CurrentDate = new DateExpense();
-        let LastDate = ExpensesFrontEnd.getLastDate();
-        var Dates = [{...CurrentDate}];
-
-        do{
-          CurrentDate.GoPastMonth(1);
-          Dates.push({...CurrentDate});         
-        }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
-
-        console.log(Dates);
 
         //Adding list to choose the kind of chart        
         var FormContent = document.getElementById(ViewsId.ExpensesView);
@@ -981,10 +976,24 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         var LabelChart= document.createElement("label");
         LabelChart.setAttribute("for","KindChart");
         LabelChart.textContent = "Gráficos";
+
+
+
+
+        
         //Meses para seleccionar
         var MonthSelected = document.createElement("select");
         MonthSelected.setAttribute("id","MonthSelected");
         MonthSelected.setAttribute("required","");
+
+        let CurrentDate = new DateExpense();
+        let LastDate = ExpensesFrontEnd.getLastDate();
+        var Dates = [{...CurrentDate}];
+
+        do{
+          CurrentDate.GoPastMonth(1);
+          Dates.push({...CurrentDate});         
+        }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
 
         Dates.forEach(function(month,index){
           var option = document.createElement("option");
@@ -1032,6 +1041,17 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         var SelectChartActive = document.querySelectorAll(".select-wrapper")[0];
 
         SelectChartActive.addEventListener("change",function(){
+          AddLoadingView('ChartApp');
+          
+          //Adding list to choose the kind of chart        
+          var FormContent = document.getElementById('ChartApp');
+          FormContent.innerHTML = "";
+          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
+        });
+
+        var SelectChartMonth = document.querySelectorAll(".select-wrapper")[1];
+
+        SelectChartMonth.addEventListener("change",function(){
           AddLoadingView('ChartApp');
           
           //Adding list to choose the kind of chart        

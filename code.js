@@ -6,10 +6,11 @@ const UrlData = {
 //Check if we are in test running
 const expresion = /\/([^\/]+)\/(exec|dev)$/i;
 var UrlGroups = ScriptApp.getService().getUrl().match(expresion);
+var UseProductionDataBaseInTest = true;
 
-var RunIn = (UrlGroups[1].length < 70) ? "Production" : "Test";
+var RunIn = (UrlGroups[1].length > 70 || UseProductionDataBaseInTest == true) ? "Production" : "Test";
 
-const UrlFinanzas=UrlData[RunIn];
+const UrlFinanzas = UrlData[RunIn];
 
 //Sheets
 const ss = SpreadsheetApp.openByUrl(UrlFinanzas);
@@ -18,6 +19,7 @@ const wsCuentas = ss.getSheetByName("cuentas");
 const wsMovimientos = ss.getSheetByName('movimientos');
 const wsActual = ss.getSheetByName('actual');
 
+//HANDELING RESPONSES TO CLIENT
 
 function GetDeployType(){
   return RunIn;
@@ -41,7 +43,7 @@ function ExecuteServerFunctions(Args) {
   return Response;
 }
 
-//NEW FUNCTIONS
+//CLASSES
 
 function DateExpense(DateIn) {
   let InitialDate = (typeof DateIn === 'number') ? DateIn.toString(): DateIn;
@@ -120,13 +122,13 @@ function AllData() {
   this.Expenses = AuxExpenses.slice(1).map(function(Expense){
     let NewExpense = {};
     Expense.forEach(function(Element, Index){
-      NewExpense[TitleCol[Index]] = Element;
+      NewExpense[TitleCol[Index]] = (TitleCol[Index] == "descripcion") ? String(Element) : Element;
     });
     return NewExpense;
   });
-  let ActualRange = wsActual.getRange(2,2,1);
-  this.Total = parseFloat(ActualRange.getValues()[0]); 
 }
+
+//MANAGING DATA IN HOST
 
 function getAllData() {
   return new AllData();
@@ -153,20 +155,13 @@ function editExpenseById(idData) {
   idData.Monto = Math.abs(idData.Monto);
   var NewMonto = (idData.action == "edit") ? ((idData.Cuenta == "Ingreso") ? parseFloat(idData.Monto):(-1)*parseFloat(idData.Monto)):0;
   var Monto =  parseFloat(ExpenseRange.getValues()[0][3]);
-  
-  var ActualRange = wsActual.getRange(2,2,1);
-  var Total = parseFloat(ActualRange.getValues()[0]) + NewMonto - Monto;
-
-  ActualRange.setValue([
-    Total
-    ]);
 
   if(idData.action == "edit") {
     var ActualFecha = new DateExpense(idData.Fecha);
     ExpenseRange.setValues([[
       ActualFecha.GetRaw(),
       idData.Cuenta,
-      idData.Description,
+      "'"+String(idData.Description),
       NewMonto
     ]]);
   } else {
@@ -184,23 +179,21 @@ function addExpense(
   rowData
 )
 {
-  var ActualRange = wsActual.getRange(1,2,2);
+  var ActualRange = wsActual.getRange(1,2,1);
   var idValue = parseInt(ActualRange.getValues()[0],10)+1;
   rowData.Monto = Math.abs(rowData.Monto);
-  rowData.Monto = (rowData.Cuenta == "Ingreso") ? parseFloat(rowData.Monto):(-1)*parseFloat(rowData.Monto);
-  var TotalValue = parseFloat(ActualRange.getValues()[1]) + rowData.Monto;  
+  rowData.Monto = (rowData.Cuenta == "Ingreso") ? parseFloat(rowData.Monto):(-1)*parseFloat(rowData.Monto); 
   var ActualFecha = new DateExpense(rowData.Fecha);
 
   ActualRange.setValues([
-    [idValue],
-    [TotalValue]
+    [idValue]
     ]);
 
   wsMovimientos.appendRow([
     idValue,
     ActualFecha.GetRaw(),
     rowData.Cuenta,
-    rowData.Description,
+    "'"+String(rowData.Description),
     rowData.Monto
   ]);
 
@@ -210,8 +203,6 @@ function addExpense(
   return true;
 }
 
-
-//OLD FUNCTIONS
 
 function EditLimitByAccount(AccountInfo) {
   const LimitList = wsCuentas.getRange(1,1,wsCuentas.getLastRow(),1).getValues().map(r => r[0].toString().toLowerCase());
@@ -228,6 +219,11 @@ function EditLimitByAccount(AccountInfo) {
   AccountRange.setValues([[
       parseFloat(AccountInfo.Monto)
   ]]);
+}
+
+function test() {
+  var ActualRange = wsActual.getRange(1,2,1);
+  console.log(ActualRange.getValues());
 }
 
 
