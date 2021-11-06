@@ -787,6 +787,7 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
     //Initialization
     
     document.addEventListener('DOMContentLoaded', function() {
+
       AddLoadingView(ViewsId.ExpensesView);
 
       google.script.run.withSuccessHandler(function(ServerResponse){
@@ -860,9 +861,11 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
       //GRAFICOS
 
-      //callback functions
+      //CALLBACK FUNCTIONS
+      //Grafico Resumen
+
       function GraficoResumen(){
-        //BALANCE DEL MES
+        //Balance del mes
         let CurrentDate = new DateExpense(MonthSelected.value);
         let MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
 
@@ -919,6 +922,46 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         });
       }
 
+
+      function GraficoResumenOpciones(HtmlElement, AllMonths, ExpensesData) {
+        //Meses para seleccionar
+        var MonthSelected = document.createElement("select");
+        MonthSelected.setAttribute("id","MonthSelected");
+        MonthSelected.setAttribute("required","");
+
+        AllMonths.forEach(function(month,index){
+          var option = document.createElement("option");
+          option.textContent = month.GetLetterMonth()+"-"+month.year.toString();
+          option.setAttribute("value",month.GetRaw());
+          MonthSelected.appendChild(option);
+        });
+
+        var LabelMonth = document.createElement("label");
+        LabelMonth.setAttribute("for","MonthSelected");
+        LabelMonth.textContent = "Mes";
+
+        var DivMonth = document.createElement("div");
+        DivMonth.setAttribute("class","input-field row");
+        DivMonth.appendChild(MonthSelected);
+        DivMonth.appendChild(LabelMonth);
+
+        HtmlElement.appendChild(DivMonth);
+        
+        var SelectMonthElem = document.getElementById("MonthSelected");        
+        var SelectMonthInstance = M.FormSelect.init(SelectMonthElem);
+
+        SelectMonthInstance.el.addEventListener("change",function(){
+          AddLoadingView('ChartApp');          
+          //Adding list to choose the kind of chart        
+          var FormContent = document.getElementById('ChartApp');
+          FormContent.innerHTML = "";
+          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
+        });
+      }
+
+
+
+      //Grafico Cuentas
       function GraficoCuentas(){
         // Define the chart to be drawn.
         var data = new google.visualization.DataTable();
@@ -933,16 +976,79 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
           // Instantiate and draw the chart.
           var chart = new google.visualization.ColumnChart(document.getElementById('ChartApp'));
           chart.draw(data, null);
-      }      
+      }
+
+      function GraficoCuentasOpciones(HtmlElement, AllMonths, ExpensesData) {
+        //Meses para seleccionar
+        var MonthsBehind = document.createElement("select");
+        MonthsBehind.setAttribute("id","MonthsBehind");
+        MonthsBehind.setAttribute("required","");
+
+        AllMonths.forEach(function(month,index){
+          if(((index + 1)%3) == 0){
+            var option = document.createElement("option");
+            option.textContent = String(index + 1) + " meses atrás";
+            option.setAttribute("value",month.GetRaw());
+            MonthsBehind.appendChild(option);
+          }
+        });
+
+        var LabelMonth = document.createElement("label");
+        LabelMonth.setAttribute("for","MonthsBehind");
+        LabelMonth.textContent = "Meses atrás";
+
+        var DivMonth = document.createElement("div");
+        DivMonth.setAttribute("class","input-field row");
+        DivMonth.appendChild(MonthsBehind);
+        DivMonth.appendChild(LabelMonth);
+        HtmlElement.appendChild(DivMonth);
+        
+        var SelectMonthElem = document.getElementById("MonthsBehind");        
+        var SelectMonthInstance = M.FormSelect.init(SelectMonthElem);
+
+        //Cuentas
+        var SelectCuentaChart = document.createElement("select");
+        SelectCuentaChart.setAttribute("id","SelectCuentaChart");
+        SelectCuentaChart.setAttribute("required",""); 
+
+        ExpensesData.Cuentas.forEach(function(r, index){
+            var option = document.createElement("option");
+            option.textContent = r[0];
+            option.setAttribute("value",r[0]);
+            if(index == 0) {
+              option.setAttribute("selected","");
+            }
+            SelectCuentaChart.appendChild(option);
+          }
+        );
+
+        var LabelCuenta = document.createElement("label");
+        LabelCuenta.setAttribute("for","SelectCuentaChart");
+        LabelCuenta.textContent = "Cuenta";
+
+        var DivCuenta = document.createElement("div");
+        DivCuenta.setAttribute("class","input-field row");
+        DivCuenta.appendChild(SelectCuentaChart);
+        DivCuenta.appendChild(LabelCuenta);
+        HtmlElement.appendChild(DivCuenta);
+
+        var SelectCuentaChartElement = document.getElementById("SelectCuentaChart");        
+        var SelectCuentaChartInstance = M.FormSelect.init(SelectCuentaChartElement);
+      }
+
+      const INDEX_GRAFICO_RESUMEN = 0;
+      const INDEX_HISTORIAL_CUENTAS = 1;      
 
       var GraficosList = [
         {
           'name':'Resumen mes',
-          'function': GraficoResumen
+          'function': GraficoResumen,
+          'addChartOptions': GraficoResumenOpciones
         },
         {
           'name':'Historial cuentas',
-          'function': GraficoCuentas
+          'function': GraficoCuentas,
+          'addChartOptions': GraficoCuentasOpciones
         },
       ];
 
@@ -952,6 +1058,16 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
       ButtonChart.addEventListener('click',function(){        
 
         AddLoadingView(ViewsId.ExpensesView);
+
+        //Month data
+        let CurrentDate = new DateExpense();
+        let LastDate = ExpensesFrontEnd.getLastDate();
+        var Dates = [{...CurrentDate}];
+
+        do{
+          CurrentDate.GoPastMonth(1);
+          Dates.push({...CurrentDate});         
+        }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
 
         //Adding list to choose the kind of chart        
         var FormContent = document.getElementById(ViewsId.ExpensesView);
@@ -977,49 +1093,21 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         LabelChart.setAttribute("for","KindChart");
         LabelChart.textContent = "Gráficos";
 
-
-
-
-        
-        //Meses para seleccionar
-        var MonthSelected = document.createElement("select");
-        MonthSelected.setAttribute("id","MonthSelected");
-        MonthSelected.setAttribute("required","");
-
-        let CurrentDate = new DateExpense();
-        let LastDate = ExpensesFrontEnd.getLastDate();
-        var Dates = [{...CurrentDate}];
-
-        do{
-          CurrentDate.GoPastMonth(1);
-          Dates.push({...CurrentDate});         
-        }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
-
-        Dates.forEach(function(month,index){
-          var option = document.createElement("option");
-          option.textContent = month.GetLetterMonth()+"-"+month.year.toString();
-          option.setAttribute("value",month.GetRaw());
-          MonthSelected.appendChild(option);
-        });
-
-        var LabelMonth = document.createElement("label");
-        LabelMonth.setAttribute("for","MonthSelected");
-        LabelMonth.textContent = "Mes";
-
         //Add elements to DOM
         var DivInfo = document.createElement("div");
         DivInfo.setAttribute("class","input-field row");
         DivInfo.appendChild(KindChart);
         DivInfo.appendChild(LabelChart);
 
-        var DivMonth = document.createElement("div");
-        DivMonth.setAttribute("class","input-field row");
-        DivMonth.appendChild(MonthSelected);
-        DivMonth.appendChild(LabelMonth);
-
         FormContent.appendChild(TitleElement);
         FormContent.appendChild(DivInfo);
-        FormContent.appendChild(DivMonth);
+        
+        //Set options for each chart
+        var DivOptions = document.createElement("div");
+        DivOptions.setAttribute("id","OptionChart");
+        FormContent.appendChild(DivOptions);
+
+        GraficosList[INDEX_GRAFICO_RESUMEN].addChartOptions(DivOptions,Dates,ExpensesFrontEnd);        
         
         var DivChart = document.createElement("div");
         DivChart.setAttribute("class","row");
@@ -1027,36 +1115,23 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         FormContent.appendChild(DivChart);
 
         google.charts.load('current', {packages: ['corechart', 'bar']});
-        google.charts.setOnLoadCallback(GraficosList[0].function);
+        google.charts.setOnLoadCallback(GraficosList[INDEX_GRAFICO_RESUMEN].function);
 
 
         //Inicializa JS
         var SelectChartElem = document.getElementById("KindChart");        
-        var SelectInstace = M.FormSelect.init(SelectChartElem);
+        var SelectChartInstance = M.FormSelect.init(SelectChartElem);
 
-        var SelectMonthElem = document.getElementById("MonthSelected");        
-        var SelectMonthInstance = M.FormSelect.init(SelectMonthElem);
-        
-        
-        var SelectChartActive = document.querySelectorAll(".select-wrapper")[0];
-
-        SelectChartActive.addEventListener("change",function(){
+        SelectChartInstance.el.addEventListener("change",function(){
           AddLoadingView('ChartApp');
-          
           //Adding list to choose the kind of chart        
           var FormContent = document.getElementById('ChartApp');
           FormContent.innerHTML = "";
-          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
-        });
 
-        var SelectChartMonth = document.querySelectorAll(".select-wrapper")[1];
+          var ChartOptionHtml = document.getElementById("OptionChart");
+          ChartOptionHtml.innerHTML = "";
 
-        SelectChartMonth.addEventListener("change",function(){
-          AddLoadingView('ChartApp');
-          
-          //Adding list to choose the kind of chart        
-          var FormContent = document.getElementById('ChartApp');
-          FormContent.innerHTML = "";
+          GraficosList[KindChart.value].addChartOptions(ChartOptionHtml,Dates,ExpensesFrontEnd); 
           google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
         });
 
