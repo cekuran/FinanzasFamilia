@@ -198,7 +198,7 @@ function addExpense(
   ]);
 
   const rangeExpenses = wsMovimientos.getRange(2,1,wsMovimientos.getLastRow(),wsMovimientos.getLastColumn());
-  rangeExpenses.sort([{column: 2, ascending: false}, {column: 1, ascending: true}]);
+  rangeExpenses.sort([{column: 2, ascending: false}, {column: 1, ascending: false}]);
 
   return true;
 }
