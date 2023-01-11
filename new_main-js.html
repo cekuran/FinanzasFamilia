@@ -1,6 +1,7 @@
 <script>
 //NEW VARIABLES
 var ExpensesFrontEnd;
+var MonthExpenses;
 var ViewsId = {
   'ExpensesView': 'App',
   'MonthsView': 'AccountsTotal',
@@ -104,11 +105,16 @@ function DateExpense(DateIn) {
   }
   this.GoFutureMonth = function(Months){
     this.year += (Months/12).toFixed();
-    this.month += Months%12;
+    this.year = (his.month + Months > 12) ? this.year + 1 : this.year;
+    this.month = (this.month + Months)%12;
   }
   this.GoPastMonth = function(Months){
     this.year -= (Months/12).toFixed();
-    this.month -= Months%12;
+    if(Months >= this.month) {
+      this.year--;
+      this.month+=12;
+    }
+    this.month = (this.month - Months);
   }
 }
 
@@ -866,14 +872,11 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
       function GraficoResumen(){
         //Balance del mes
-        let CurrentDate = new DateExpense(MonthSelected.value);
-        let MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
-
         let CuentasMonth = [["Cuenta","Monto",{ role: 'style' }]];
 
         const colorIndex = ColorTable(0);
 
-        MonthInfo.Cuentas.forEach(function(cuenta){
+        MonthExpenses[MonthSelected.value].MonthInfo.Cuentas.forEach(function(cuenta){
           if(cuenta.cuenta != "Ingreso") {
             CuentasMonth.push([cuenta.cuenta, Math.abs(cuenta.mes),colorIndex.next().value]);
           }
@@ -896,7 +899,7 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         chart.draw(view,{
           bar: {groupWidth: "98%"},
           legend: { position: "none" },
-          title: CurrentDate.GetLetterMonth() + " " + CurrentDate.year.toString(),
+          title: MonthExpenses[MonthSelected.value].Date.GetLetterMonth() + " " + MonthExpenses[MonthSelected.value].Date.year.toString(),
           titleTextStyle: {
                             fontSize: 15,
                             bold: true
@@ -929,10 +932,10 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         MonthSelected.setAttribute("id","MonthSelected");
         MonthSelected.setAttribute("required","");
 
-        AllMonths.forEach(function(month,index){
+        AllMonths.forEach(function(DataMonth,index){
           var option = document.createElement("option");
-          option.textContent = month.GetLetterMonth()+"-"+month.year.toString();
-          option.setAttribute("value",month.GetRaw());
+          option.textContent = DataMonth.Date.GetLetterMonth()+"-"+DataMonth.Date.year.toString();
+          option.setAttribute("value",index);
           MonthSelected.appendChild(option);
         });
 
@@ -963,19 +966,27 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
       //Grafico Cuentas
       function GraficoCuentas(){
-        // Define the chart to be drawn.
-        var data = new google.visualization.DataTable();
-          data.addColumn('string', 'Element');
-          data.addColumn('number', 'Percentage');
-          data.addRows([
-            ['Nitrogen', 0.78],
-            ['Oxygen', 0.21],
-            ['Other', 0.01]
-          ]);
+        //Balance del mes
+        let AccountHistory = [["Mes","Monto"]];
+        let MonthUsed = MonthExpenses.slice(0,MonthsBehind.value);
 
-          // Instantiate and draw the chart.
-          var chart = new google.visualization.ColumnChart(document.getElementById('ChartApp'));
-          chart.draw(data, null);
+        MonthUsed.reverse().forEach(function(CurrentMonth){
+          AccountHistory.push([
+            CurrentMonth.Date.GetLetterMonth().slice(0, 3)+"-"+CurrentMonth.Date.year.toString(),
+            Math.abs(CurrentMonth.MonthInfo.Cuentas[SelectCuentaChart.value].mes)]);          
+        });
+
+        // Define the chart to be drawn.
+        var data = google.visualization.arrayToDataTable(AccountHistory);
+
+        var options = {
+          title: MonthUsed[0].MonthInfo.Cuentas[SelectCuentaChart.value].cuenta,
+          hAxis: {title: 'Mes',  titleTextStyle: {color: '#333'}},
+          vAxis: {minValue: 0}
+        };
+
+        var chart = new google.visualization.AreaChart(document.getElementById('ChartApp'));
+        chart.draw(data, options);
       }
 
       function GraficoCuentasOpciones(HtmlElement, AllMonths, ExpensesData) {
@@ -984,11 +995,11 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         MonthsBehind.setAttribute("id","MonthsBehind");
         MonthsBehind.setAttribute("required","");
 
-        AllMonths.forEach(function(month,index){
+        AllMonths.forEach(function(DataMonth,index){
           if(((index + 1)%3) == 0){
             var option = document.createElement("option");
             option.textContent = String(index + 1) + " meses atrás";
-            option.setAttribute("value",month.GetRaw());
+            option.setAttribute("value",index + 1);
             MonthsBehind.appendChild(option);
           }
         });
@@ -1006,6 +1017,14 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         var SelectMonthElem = document.getElementById("MonthsBehind");        
         var SelectMonthInstance = M.FormSelect.init(SelectMonthElem);
 
+        SelectMonthInstance.el.addEventListener("change",function(){
+          AddLoadingView('ChartApp');          
+          //Adding list to choose the kind of chart        
+          var FormContent = document.getElementById('ChartApp');
+          FormContent.innerHTML = "";
+          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
+        });
+
         //Cuentas
         var SelectCuentaChart = document.createElement("select");
         SelectCuentaChart.setAttribute("id","SelectCuentaChart");
@@ -1014,7 +1033,7 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         ExpensesData.Cuentas.forEach(function(r, index){
             var option = document.createElement("option");
             option.textContent = r[0];
-            option.setAttribute("value",r[0]);
+            option.setAttribute("value",index);
             if(index == 0) {
               option.setAttribute("selected","");
             }
@@ -1034,6 +1053,14 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
         var SelectCuentaChartElement = document.getElementById("SelectCuentaChart");        
         var SelectCuentaChartInstance = M.FormSelect.init(SelectCuentaChartElement);
+
+        SelectCuentaChartInstance.el.addEventListener("change",function(){
+          AddLoadingView('ChartApp');          
+          //Adding list to choose the kind of chart        
+          var FormContent = document.getElementById('ChartApp');
+          FormContent.innerHTML = "";
+          google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
+        });
       }
 
       const INDEX_GRAFICO_RESUMEN = 0;
@@ -1055,18 +1082,20 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
       //Add Charts to DOM
       var ButtonChart = document.getElementById('ChartButton');
-      ButtonChart.addEventListener('click',function(){        
+      ButtonChart.addEventListener('click',function(){       
 
         AddLoadingView(ViewsId.ExpensesView);
 
         //Month data
         let CurrentDate = new DateExpense();
         let LastDate = ExpensesFrontEnd.getLastDate();
-        var Dates = [{...CurrentDate}];
+        let MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
+        MonthExpenses = [{"MonthInfo":{...MonthInfo},"Date":{...CurrentDate}}];
 
         do{
           CurrentDate.GoPastMonth(1);
-          Dates.push({...CurrentDate});         
+          MonthInfo = ExpensesFrontEnd.getDataMonth(CurrentDate);
+          MonthExpenses.push({"MonthInfo":{...MonthInfo},"Date":{...CurrentDate}});
         }while((CurrentDate.month != LastDate.month)||(CurrentDate.year != LastDate.year));
 
         //Adding list to choose the kind of chart        
@@ -1107,12 +1136,14 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
         DivOptions.setAttribute("id","OptionChart");
         FormContent.appendChild(DivOptions);
 
-        GraficosList[INDEX_GRAFICO_RESUMEN].addChartOptions(DivOptions,Dates,ExpensesFrontEnd);        
+        GraficosList[INDEX_GRAFICO_RESUMEN].addChartOptions(DivOptions,MonthExpenses,ExpensesFrontEnd);        
         
         var DivChart = document.createElement("div");
         DivChart.setAttribute("class","row");
         DivChart.setAttribute("id","ChartApp");
         FormContent.appendChild(DivChart);
+
+        AddLoadingView('ChartApp');
 
         google.charts.load('current', {packages: ['corechart', 'bar']});
         google.charts.setOnLoadCallback(GraficosList[INDEX_GRAFICO_RESUMEN].function);
@@ -1131,7 +1162,7 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
           var ChartOptionHtml = document.getElementById("OptionChart");
           ChartOptionHtml.innerHTML = "";
 
-          GraficosList[KindChart.value].addChartOptions(ChartOptionHtml,Dates,ExpensesFrontEnd); 
+          GraficosList[KindChart.value].addChartOptions(ChartOptionHtml,MonthExpenses,ExpensesFrontEnd); 
           google.charts.setOnLoadCallback(GraficosList[KindChart.value].function);
         });
 

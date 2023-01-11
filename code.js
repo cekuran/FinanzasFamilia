@@ -116,6 +116,8 @@ function DateExpense(DateIn) {
 }
 
 function AllData() {
+  wsMovimientos.sort(2,false);
+
   this.Cuentas = wsCuentas.getRange(1,1,wsCuentas.getLastRow(),2).getValues();
   let AuxExpenses = wsMovimientos.getRange(1,1,wsMovimientos.getLastRow(),wsMovimientos.getLastColumn()).getValues();
   let TitleCol = AuxExpenses[0];
@@ -168,8 +170,7 @@ function editExpenseById(idData) {
     wsMovimientos.deleteRow(RowNumber);
   }
 
-  const rangeExpenses = wsMovimientos.getRange(2,1,wsMovimientos.getLastRow(),wsMovimientos.getLastColumn());
-  rangeExpenses.sort({column: 2, ascending: false});
+  wsMovimientos.sort(2,false);
 
   return true;
 }
