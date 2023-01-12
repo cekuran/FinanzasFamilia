@@ -170,8 +170,6 @@ function editExpenseById(idData) {
     wsMovimientos.deleteRow(RowNumber);
   }
 
-  wsMovimientos.sort(2,false);
-
   return true;
 }
 
@@ -197,9 +195,6 @@ function addExpense(
     "'"+String(rowData.Description),
     rowData.Monto
   ]);
-
-  const rangeExpenses = wsMovimientos.getRange(2,1,wsMovimientos.getLastRow(),wsMovimientos.getLastColumn());
-  rangeExpenses.sort([{column: 2, ascending: false}, {column: 1, ascending: false}]);
 
   return true;
 }
