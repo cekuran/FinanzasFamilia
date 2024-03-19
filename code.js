@@ -1,6 +1,10 @@
+const scriptProperties = PropertiesService.getScriptProperties();
+const SPREADSHEET_PRODUCTION = scriptProperties.getProperty('SPREADSHEET_PRODUCTION');
+const SPREADSHEET_TEST = scriptProperties.getProperty('SPREADSHEET_TEST');
+
 const UrlData = {
-  Production:"https://docs.google.com/spreadsheets/d/15B05YFKuvhDbOoUJWWHvnyZjTnx464A2a3-i7uWLCk8/edit#gid=0",
-  Test:"https://docs.google.com/spreadsheets/d/1H1-JTR4yxE-5pWN8hZ-UUf7fPhvntOy1Pzsyx4nAErc/edit#gid=0"
+  Production:SPREADSHEET_PRODUCTION,
+  Test:SPREADSHEET_TEST
 };
 
 //Check if we are in test running
@@ -218,8 +222,7 @@ function EditLimitByAccount(AccountInfo) {
 }
 
 function test() {
-  var ActualRange = wsActual.getRange(1,2,1);
-  console.log(ActualRange.getValues());
+  console.log(SPREADSHEET_TEST);
 }
 
 

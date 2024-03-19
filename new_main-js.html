@@ -343,10 +343,10 @@ function ValidationData(){
 
     //Agrega elementos
     FormContent.appendChild(TitleElement);
-    FormContent.appendChild(DivCuenta);
-    FormContent.appendChild(DivFecha);
-    FormContent.appendChild(DivDescription);
     FormContent.appendChild(DivMonto);
+    FormContent.appendChild(DivFecha);
+    FormContent.appendChild(DivCuenta);
+    FormContent.appendChild(DivDescription);
 
     //Agrega valores por defecto
     if(FormInfo.Action == "edit") {
@@ -373,7 +373,7 @@ function ValidationData(){
             AddLoadingView(ViewsId.ExpensesView);
             M.toast({html: "Operación exitosa"});
 
-            google.script.run.withSuccessHandler(function(ServerResponse){
+            google.script.run.withSuccessHandler(function(ServerResponse){  
               ExpensesFrontEnd = new AllDataFrontEnd(ServerResponse.getAllData);
               AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
             }).ExecuteServerFunctions({
