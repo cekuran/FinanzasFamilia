@@ -10,7 +10,7 @@ const UrlData = {
 //Check if we are in test running
 const expresion = /\/([^\/]+)\/(exec|dev)$/i;
 var UrlGroups = ScriptApp.getService().getUrl().match(expresion);
-var UseProductionDataBaseInTest = true;
+var UseProductionDataBaseInTest = false;
 
 var RunIn = (UrlGroups[1].length > 70 || UseProductionDataBaseInTest == true) ? "Production" : "Test";
 
@@ -22,6 +22,7 @@ const ss = SpreadsheetApp.openByUrl(UrlFinanzas);
 const wsCuentas = ss.getSheetByName("cuentas");
 const wsMovimientos = ss.getSheetByName('movimientos');
 const wsActual = ss.getSheetByName('actual');
+const wsUsuarios = ss.getSheetByName('usuarios');
 
 //HANDELING RESPONSES TO CLIENT
 
@@ -221,8 +222,23 @@ function EditLimitByAccount(AccountInfo) {
   ]]);
 }
 
+// Authentication
+
+class Users {
+  constructor(){
+    this.usersList = wsUsuarios.getRange(2,1,wsUsuarios.getLastRow() - 1,1).getValues().map(r =>r[0].toString().toLowerCase());
+  }
+
+  checkUser(currentUser){
+    return (this.usersList.indexOf(currentUser.toString().toLowerCase()) === -1) ? false : true;
+  }
+}
+
+
+// Test
+
 function test() {
-  console.log(SPREADSHEET_TEST);
+  let currentUsers = new Users();
 }
 
 

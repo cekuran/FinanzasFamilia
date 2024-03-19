@@ -1,11 +1,17 @@
 // General
 
 var Route = {
-  "New":"new_main.html"
+  "New":"new_main.html",
+  "Denied":"access_denied.html"
 };
 
 function doGet(e) {
-  return HtmlService.createTemplateFromFile(Route.New).evaluate().setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  let currentUsers = new Users();
+  let userAllowed = currentUsers.checkUser(Session.getActiveUser().getEmail());
+  console.log(Session.getActiveUser().getEmail());
+  console.log(userAllowed);
+  let currentView = (true == userAllowed) ? Route.New : Route.Denied;
+  return HtmlService.createTemplateFromFile(currentView).evaluate().setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL).addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 //GET ALL VIEWS
