@@ -348,6 +348,26 @@ function ValidationData(){
     FormContent.appendChild(DivCuenta);
     FormContent.appendChild(DivDescription);
 
+    if(FormInfo.Action == "add")
+    {
+      //Add checkbox to set a expense recurse each month
+      var inputRecursive = document.createElement('input');
+      inputRecursive.setAttribute('type', 'checkbox');
+      inputRecursive.setAttribute('id', 'CheckBoxRecursive');
+
+      var spanRecursive = document.createElement("span");
+      spanRecursive.textContent = "Recurrente";
+
+      var labelRecursive = document.createElement("label");
+      labelRecursive.appendChild(inputRecursive);
+      labelRecursive.appendChild(spanRecursive);
+
+      var CheckBoxRecursive = document.createElement('p');
+      CheckBoxRecursive.appendChild(labelRecursive);
+
+      FormContent.appendChild(CheckBoxRecursive);
+    }
+
     //Agrega valores por defecto
     if(FormInfo.Action == "edit") {
       let CurrentExpense = ExpensesData.getExpenseById(FormInfo.id);
@@ -363,6 +383,7 @@ function ValidationData(){
     FormButton.innerHTML = "";
 
     if(FormInfo.Action == "add") {
+
       var ButtonAdd = document.createElement('a');
       ButtonAdd.setAttribute('class','modal-close waves-effect waves-green btn-flat');
       ButtonAdd.textContent = "Agregar";

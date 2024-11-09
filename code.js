@@ -22,6 +22,7 @@ const ss = SpreadsheetApp.openByUrl(UrlFinanzas);
 const wsCuentas = ss.getSheetByName("cuentas");
 const wsMovimientos = ss.getSheetByName('movimientos');
 const wsActual = ss.getSheetByName('actual');
+const wsRecurrente = ss.getSheetByName('recurrente');
 
 //HANDELING RESPONSES TO CLIENT
 
@@ -124,8 +125,17 @@ function AllData() {
 
   this.Cuentas = wsCuentas.getRange(1,1,wsCuentas.getLastRow(),2).getValues();
   let AuxExpenses = wsMovimientos.getRange(1,1,wsMovimientos.getLastRow(),wsMovimientos.getLastColumn()).getValues();
+  let AuxRecursive = wsRecurrente.getRange(1,1,wsRecurrente.getLastRow(),wsRecurrente.getLastColumn()).getValues();
   let TitleCol = AuxExpenses[0];
   this.Expenses = AuxExpenses.slice(1).map(function(Expense){
+    let NewExpense = {};
+    Expense.forEach(function(Element, Index){
+      NewExpense[TitleCol[Index]] = (TitleCol[Index] == "descripcion") ? String(Element) : Element;
+    });
+    return NewExpense;
+  });
+
+  this.Recursive = AuxRecursive.slice(1).map(function(Expense){
     let NewExpense = {};
     Expense.forEach(function(Element, Index){
       NewExpense[TitleCol[Index]] = (TitleCol[Index] == "descripcion") ? String(Element) : Element;
@@ -222,7 +232,8 @@ function EditLimitByAccount(AccountInfo) {
 }
 
 function test() {
-  console.log(SPREADSHEET_TEST);
+  let test = getAllData();
+  console.log(test);
 }
 
 
