@@ -11,6 +11,12 @@ var ViewsId = {
   "ExpensesRecursive": 'App'
 };
 
+const Expenses = Object.freeze({
+  Option1: 'option1',
+  Option2: 'option2',
+  Option3: 'option3'
+})
+
 function* ColorTable(index) {
   let ColorList =     [
     'LightSeaGreen',
@@ -605,6 +611,8 @@ function AddExpenseFrontEnd(Ids,ExpensesData){
         cardElement.setAttribute("id",Expense.id);
         cardElement.classList.add((Expense.cuenta=="Ingreso")?"green":"red");
         cardElement.appendChild(CardContent);
+        
+        // Agrega ventana para editar el gasto
 
         cardElement.addEventListener('click',function(){
           CreateFormForExpenseInModal_FrontEnd(ViewsId,ExpensesFrontEnd,{'Action':'edit','id':this.id});
