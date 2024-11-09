@@ -8,6 +8,7 @@ var ViewsId = {
   'ModalView' : 'modal1',
   'ModalFields':"FormFields",
   "ModalButtons":"FormButtons",
+  "ExpensesRecursive": 'App'
 };
 
 function* ColorTable(index) {
@@ -179,6 +180,8 @@ function AllDataFrontEnd(ServerInfo) {
   this.getLastDate = function() {
     return this.Expenses[this.Expenses.length-1].fecha;
   }
+
+  console.log(this);
 }
 
 //VALIDATION
@@ -880,6 +883,13 @@ function CreateFormForAccoutInModal(Ids,ExpensesData,Cuenta) {
 
       var ButtonHome = document.getElementById('HomeButton');
       ButtonHome.addEventListener("click",function(){
+          AddLoadingView(ViewsId.ExpensesView);
+          AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
+
+      });
+
+      var ButtonRecurse = document.getElementById('RecurseButton');
+      ButtonRecurse.addEventListener("click",function(){
           AddLoadingView(ViewsId.ExpensesView);
           AddExpenseFrontEnd(ViewsId,ExpensesFrontEnd);
 

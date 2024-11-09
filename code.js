@@ -138,7 +138,7 @@ function AllData() {
   this.Recursive = AuxRecursive.slice(1).map(function(Expense){
     let NewExpense = {};
     Expense.forEach(function(Element, Index){
-      NewExpense[TitleCol[Index]] = (TitleCol[Index] == "descripcion") ? String(Element) : Element;
+      NewExpense[TitleCol[Index+1]] = (TitleCol[Index + 1] == "descripcion") ? String(Element) : Element;
     });
     return NewExpense;
   });
